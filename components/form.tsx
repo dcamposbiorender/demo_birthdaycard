@@ -70,7 +70,6 @@ export const BirthdayCardForm = () => {
     rsvpReplies?: Array<{ email: string; reply: string }>;
     status?: string;
     message?: string;
-    workflowId?: string;
     note?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -350,13 +349,6 @@ export const BirthdayCardForm = () => {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm">{result?.message}</p>
-            {result?.workflowId && (
-              <div className="bg-muted p-3 rounded-md">
-                <p className="font-mono text-xs break-all">
-                  Workflow ID: {result.workflowId}
-                </p>
-              </div>
-            )}
             {result?.note && (
               <p className="text-muted-foreground text-xs">{result.note}</p>
             )}
@@ -364,7 +356,7 @@ export const BirthdayCardForm = () => {
               <p className="font-medium text-sm mb-2">What happens next:</p>
               <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
                 <li>Image and text are generated (OpenAI)</li>
-                <li>RSVP emails are sent (mocked to console)</li>
+                <li>RSVP emails are sent (mocked to logs)</li>
                 <li>Workflow pauses until RSVP links are clicked</li>
                 <li>After 10s sleep, birthday card is sent</li>
               </ol>

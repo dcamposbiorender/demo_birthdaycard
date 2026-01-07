@@ -42,14 +42,13 @@ export const POST = async (request: Request): Promise<NextResponse> => {
       eventDate ? new Date(eventDate) : undefined,
     ]);
 
-    // If there are RSVP emails, we can't wait - return workflow ID immediately
+    // If there are RSVP emails, we can't wait - return immediately
     // The workflow will pause at the webhook step and continue when users click
     if (rsvpEmails.length > 0) {
       return NextResponse.json({
         status: 'started',
-        message: 'Workflow started! Check server logs for webhook URLs to simulate RSVP responses.',
-        workflowId: result.workflowId,
-        note: 'The workflow is now waiting for RSVP responses. In a real app, you would poll for status or use a webhook callback.',
+        message: 'Workflow started! Check Vercel function logs for webhook URLs to simulate RSVP responses.',
+        note: 'The workflow is now waiting for RSVP responses. It will continue when webhook URLs are clicked.',
       });
     }
 
