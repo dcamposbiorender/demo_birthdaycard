@@ -65,9 +65,13 @@ type FormValues = z.infer<typeof formSchema>;
 export const BirthdayCardForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<{
-    image: string;
-    text: string;
+    image?: string;
+    text?: string;
     rsvpReplies?: Array<{ email: string; reply: string }>;
+    status?: string;
+    message?: string;
+    workflowId?: string;
+    note?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -304,6 +308,7 @@ export const BirthdayCardForm = () => {
         </div>
       )}
 
+      {/* Dialog for completed workflow (image + text) */}
       <Dialog open={Boolean(result?.image && result?.text)} onOpenChange={() => setResult(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -334,6 +339,37 @@ export const BirthdayCardForm = () => {
               </ul>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for async workflow (started with RSVPs) */}
+      <Dialog open={Boolean(result?.status === 'started')} onOpenChange={() => setResult(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Workflow Started!</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm">{result?.message}</p>
+            {result?.workflowId && (
+              <div className="bg-muted p-3 rounded-md">
+                <p className="font-mono text-xs break-all">
+                  Workflow ID: {result.workflowId}
+                </p>
+              </div>
+            )}
+            {result?.note && (
+              <p className="text-muted-foreground text-xs">{result.note}</p>
+            )}
+            <div className="border-t pt-4">
+              <p className="font-medium text-sm mb-2">What happens next:</p>
+              <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
+                <li>Image and text are generated (OpenAI)</li>
+                <li>RSVP emails are sent (mocked to console)</li>
+                <li>Workflow pauses until RSVP links are clicked</li>
+                <li>After 10s sleep, birthday card is sent</li>
+              </ol>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

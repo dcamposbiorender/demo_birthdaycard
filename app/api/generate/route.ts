@@ -6,11 +6,13 @@ import { generateBirthdayCard } from '@/app/api/generate/generate-birthday-card'
 /**
  * API route for birthday card generation
  *
- * Parameters:
- * - prompt (required): Description of the birthday card
- * - recipientEmail (required): Email of the birthday person
- * - rsvpEmails (optional): Array of guest emails for RSVP
- * - eventDate (optional): When to send the card (ISO string)
+ * IMPORTANT: For workflows with webhooks/sleep, we can't wait for completion
+ * because Vercel serverless functions timeout after 10-60 seconds.
+ *
+ * Two modes:
+ * - Without RSVP emails: Wait for full completion (image + text only)
+ * - With RSVP emails: Start workflow and return immediately with workflow ID
+ *   The workflow continues in the background waiting for webhook clicks.
  */
 export const POST = async (request: Request): Promise<NextResponse> => {
   try {
@@ -32,7 +34,7 @@ export const POST = async (request: Request): Promise<NextResponse> => {
       );
     }
 
-    // Start the workflow with all parameters
+    // Start the workflow
     const result = await start(generateBirthdayCard, [
       prompt,
       recipientEmail,
@@ -40,6 +42,19 @@ export const POST = async (request: Request): Promise<NextResponse> => {
       eventDate ? new Date(eventDate) : undefined,
     ]);
 
+    // If there are RSVP emails, we can't wait - return workflow ID immediately
+    // The workflow will pause at the webhook step and continue when users click
+    if (rsvpEmails.length > 0) {
+      return NextResponse.json({
+        status: 'started',
+        message: 'Workflow started! Check server logs for webhook URLs to simulate RSVP responses.',
+        workflowId: result.workflowId,
+        note: 'The workflow is now waiting for RSVP responses. In a real app, you would poll for status or use a webhook callback.',
+      });
+    }
+
+    // Without RSVP emails, we can wait for completion (just image + text + sleep)
+    // This should complete within the serverless timeout
     const values = await result.returnValue;
 
     return NextResponse.json(values);
