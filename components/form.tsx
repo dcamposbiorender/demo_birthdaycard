@@ -1,11 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2Icon } from 'lucide-react';
+import { format } from 'date-fns';
+import { CalendarIcon, Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Form,
   FormControl,
@@ -14,23 +16,48 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import { Textarea } from './ui/textarea';
 
 /**
- * Simplified form schema (POC)
- * - Only requires prompt
- * - Removed email/RSVP/date fields
+ * Form schema for birthday card generation
+ * Demonstrates the full workflow with RSVP collection
  */
 const formSchema = z.object({
   prompt: z.string().min(1, {
     message: 'Prompt is required.',
   }),
+  recipientEmail: z.string().email({
+    message: 'Please enter a valid email address.',
+  }),
+  eventDate: z.date().optional(),
+  rsvpEmail1: z
+    .string()
+    .email({ message: 'Please enter a valid email address.' })
+    .optional()
+    .or(z.literal('')),
+  rsvpEmail2: z
+    .string()
+    .email({ message: 'Please enter a valid email address.' })
+    .optional()
+    .or(z.literal('')),
+  rsvpEmail3: z
+    .string()
+    .email({ message: 'Please enter a valid email address.' })
+    .optional()
+    .or(z.literal('')),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -40,6 +67,7 @@ export const BirthdayCardForm = () => {
   const [result, setResult] = useState<{
     image: string;
     text: string;
+    rsvpReplies?: Array<{ email: string; reply: string }>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +75,10 @@ export const BirthdayCardForm = () => {
     resolver: zodResolver(formSchema as never),
     defaultValues: {
       prompt: '',
+      recipientEmail: '',
+      rsvpEmail1: '',
+      rsvpEmail2: '',
+      rsvpEmail3: '',
     },
   });
 
@@ -56,6 +88,13 @@ export const BirthdayCardForm = () => {
     setResult(null);
 
     try {
+      // Collect non-empty RSVP emails
+      const rsvpEmails = [
+        values.rsvpEmail1,
+        values.rsvpEmail2,
+        values.rsvpEmail3,
+      ].filter((email) => email && email.trim().length > 0);
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -63,6 +102,9 @@ export const BirthdayCardForm = () => {
         },
         body: JSON.stringify({
           prompt: values.prompt,
+          recipientEmail: values.recipientEmail,
+          eventDate: values.eventDate?.toISOString(),
+          rsvpEmails,
         }),
       });
 
@@ -81,11 +123,78 @@ export const BirthdayCardForm = () => {
   };
 
   const hasPrompt = form.watch('prompt').trim().length > 0;
+  const hasRecipient = form.watch('recipientEmail').trim().length > 0;
 
   return (
     <div className="w-full space-y-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* Recipient Email */}
+          <FormField
+            control={form.control}
+            name="recipientEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Recipient Email (birthday person)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="birthday-person@example.com"
+                    className="bg-background"
+                    disabled={isSubmitting}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Event Date (optional) */}
+          <FormField
+            control={form.control}
+            name="eventDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Birthday Date (optional - demo uses 10s delay)</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full pl-3 text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                        disabled={isSubmitting}
+                      >
+                        {field.value ? (
+                          format(field.value, 'PPP')
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                        <CalendarIcon className="ml-auto size-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) =>
+                        date < new Date(new Date().setHours(0, 0, 0, 0))
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Prompt */}
           <FormField
             control={form.control}
             name="prompt"
@@ -106,15 +215,80 @@ export const BirthdayCardForm = () => {
               </FormItem>
             )}
           />
+
+          {/* RSVP Emails */}
+          <div className="space-y-2">
+            <FormLabel>RSVP Emails (optional - triggers webhook wait)</FormLabel>
+            <p className="text-muted-foreground text-xs">
+              Add guests to demonstrate the webhook feature. The workflow will pause until they respond.
+            </p>
+            <div className="space-y-2">
+              <FormField
+                control={form.control}
+                name="rsvpEmail1"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="guest1@example.com"
+                        className="bg-background"
+                        disabled={isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="rsvpEmail2"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="guest2@example.com"
+                        className="bg-background"
+                        disabled={isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="rsvpEmail3"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="guest3@example.com"
+                        className="bg-background"
+                        disabled={isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
           <Button
             type="submit"
-            disabled={isSubmitting || !hasPrompt}
+            disabled={isSubmitting || !hasPrompt || !hasRecipient}
             className="w-full"
           >
             {isSubmitting ? (
               <>
                 <Loader2Icon className="mr-2 size-4 animate-spin" />
-                Generating...
+                Generating (check console for webhook URLs)...
               </>
             ) : (
               <>Generate Birthday Card</>
@@ -144,6 +318,21 @@ export const BirthdayCardForm = () => {
           )}
           {result?.text && (
             <p className="text-sm whitespace-pre-wrap">{result.text}</p>
+          )}
+          {result?.rsvpReplies && result.rsvpReplies.length > 0 && (
+            <div className="border-t pt-4">
+              <p className="font-medium text-sm mb-2">RSVP Responses:</p>
+              <ul className="text-sm space-y-1">
+                {result.rsvpReplies.map((rsvp, i) => (
+                  <li key={i} className="flex justify-between">
+                    <span>{rsvp.email}</span>
+                    <span className={rsvp.reply === 'yes' ? 'text-green-600' : 'text-red-600'}>
+                      {rsvp.reply}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </DialogContent>
       </Dialog>
