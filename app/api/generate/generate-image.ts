@@ -15,9 +15,8 @@ export const generateImageStep = async (prompt: string) => {
     throw new Error('Failed to generate image');
   }
 
-  // Format as a data URI with the proper media type for use in img src
-  const mediaType = image.mimeType || 'image/png';
-  return `data:${mediaType};base64,${image.base64}`;
+  // Format as a data URI (DALL-E 3 returns PNG images)
+  return `data:image/png;base64,${image.base64}`;
 };
 
 // Export with original name for compatibility
